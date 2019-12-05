@@ -7,6 +7,7 @@ import tokenize
 from dataclasses import dataclass
 from enum import IntEnum
 
+NO_LINE = 0xFF
 token.EXACT_TOKEN_NAMES = dict(
     zip(token.EXACT_TOKEN_TYPES.values(), token.EXACT_TOKEN_TYPES.keys())
 )
@@ -42,6 +43,10 @@ class Priority(IntEnum):
 
 
 class PatternError(Exception):
+    pass
+
+
+class Transposer(Exception):
     pass
 
 
@@ -151,9 +156,12 @@ class TokenTransformer:
             pattern_slice.increase(offset)
             matching_tokens = stream_tokens[pattern_slice.s]
             tokens = visitor(*matching_tokens) or matching_tokens
-            tokens, matching_tokens, stream_tokens = self.set_tokens(
-                tokens, pattern_slice.s, matching_tokens, stream_tokens
-            )
+            if NO_LINE in tokens:
+                tokens = []
+            else:
+                tokens, matching_tokens, stream_tokens = self.set_tokens(
+                    tokens, pattern_slice.s, matching_tokens, stream_tokens
+                )
             offset += len(tokens) - len(matching_tokens)
             stream_tokens[pattern_slice.s] = tokens
         return stream_tokens
