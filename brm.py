@@ -7,7 +7,6 @@ import tokenize
 from dataclasses import dataclass
 from enum import IntEnum
 
-NO_LINE = 0xFF
 token.EXACT_TOKEN_NAMES = dict(
     zip(token.EXACT_TOKEN_TYPES.values(), token.EXACT_TOKEN_TYPES.keys())
 )
@@ -47,6 +46,10 @@ class PatternError(Exception):
 
 
 class Transposer(Exception):
+    pass
+
+
+class NoLineTransposer(Transposer):
     pass
 
 
@@ -155,15 +158,17 @@ class TokenTransformer:
         for pattern_slice in pattern_slices:
             pattern_slice.increase(offset)
             matching_tokens = stream_tokens[pattern_slice.s]
-            tokens = visitor(*matching_tokens) or matching_tokens
-            if NO_LINE in tokens:
+            try:
+                tokens = visitor(*matching_tokens) or matching_tokens
+            except NoLineTransposer:
                 tokens = []
-            else:
-                tokens, matching_tokens, stream_tokens = self.set_tokens(
-                    tokens, pattern_slice.s, matching_tokens, stream_tokens
+                stream_tokens = self.shift_after(
+                    pattern_slice.s.stop, stream_tokens, y_offset=-1
                 )
+
             offset += len(tokens) - len(matching_tokens)
             stream_tokens[pattern_slice.s] = tokens
+
         return stream_tokens
 
     def _pattern_transformer_regex(self, patterns, stream_tokens):
@@ -277,7 +282,6 @@ class TokenTransformer:
             patterns, stream_tokens_buffer
         )
         stream_tokens = stream_tokens_buffer.copy()
-
         source = tokenize.untokenize(stream_tokens)
         return source
 
@@ -314,6 +318,24 @@ class TokenTransformer:
         return_value = new_tokens_buffer, matching_tokens, all_tokens_buffer
         return return_value
 
+    def shift_all(self, tokens, x_offset=0, y_offset=0):
+        new_tokens = []
+        for token in tokens:
+            new_token = self.increase(token, amount=y_offset, page=0)
+            new_token = self.increase(new_token, amount=x_offset, page=1)
+            new_tokens.append(new_token)
+        return new_tokens
+
+    def shift_after(self, point, tokens, x_offset=0, y_offset=0):
+        prev_tokens = tokens[:point]
+        next_tokens = self.shift_all(
+            tokens[point:], x_offset=x_offset, y_offset=y_offset
+        )
+        return prev_tokens + next_tokens
+
+    def directional_length(self, tokens):
+        return tokens[-1].end[1] - tokens[0].start[1]
+
     def increase(self, token, amount=1, page=0):
         # page 0 => line number
         # page 1 => column offset
@@ -324,6 +346,9 @@ class TokenTransformer:
         end[page] += amount
 
         return token._replace(start=tuple(start), end=tuple(end))
+
+    def is_valid_position(self, token):
+        return all(pos >= 0 for pos in (token.start + token.end))
 
     def quick_tokenize(self, source):
         return list(tokenize.generate_tokens(io.StringIO(source).readline))[
