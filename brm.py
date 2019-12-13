@@ -160,6 +160,9 @@ class TokenTransformer:
             matching_tokens = stream_tokens[pattern_slice.s]
             try:
                 tokens = visitor(*matching_tokens) or matching_tokens
+                tokens, matching_tokens, stream_tokens = self.set_tokens(
+                    tokens, pattern_slice.s, matching_tokens, stream_tokens
+                )
             except NoLineTransposer:
                 tokens = []
                 stream_tokens = self.shift_after(
