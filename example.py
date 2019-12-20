@@ -16,6 +16,8 @@ class ImportFixer(TokenTransformer):
 
     # import foo
     # import foo, bar
+    # import foo, foo.bar
+    # import foo.bar, bar.foo
     @pattern("name", f"({dot_name}( comma {dot_name})*)", "(newline|nl)")
     def fix_import_stmt(self, stmt, *tokens):
         if stmt.string != "import":

@@ -7,7 +7,7 @@ import token
 import tokenize
 from enum import IntEnum
 
-if sys.version_info < 3.8:
+if sys.version_info < (3, 8):
     token.COLONEQUAL = 0xFF
     token.tok_name[0xFF] = "COLONEQUAL"
     tokenize.EXACT_TOKEN_TYPES[":="] = token.COLONEQUAL
