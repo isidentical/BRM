@@ -7,6 +7,13 @@ import tokenize
 from dataclasses import dataclass
 from enum import IntEnum
 
+
+if not hasattr(token, "EXACT_TOKEN_TYPES"):
+    token.COLONEQUAL = 0xFF
+    token.tok_name[0xFF] = "COLONEQUAL"
+    tokenize.EXACT_TOKEN_TYPES[":="] = token.COLONEQUAL
+    token.EXACT_TOKEN_TYPES = tokenize.EXACT_TOKEN_TYPES
+
 token.EXACT_TOKEN_NAMES = dict(
     zip(token.EXACT_TOKEN_TYPES.values(), token.EXACT_TOKEN_TYPES.keys())
 )
@@ -57,9 +64,11 @@ def _clear_name(name):
     if not name.isalpha():
         index = -1
         name_buffer = ""
-        while (current := name[index]).isalpha():
+        current = name[index]
+        while current.isalpha():
             name_buffer += current
             index -= 1
+            current = name[index]
         index += 1  # pretty hacky, fix it ASAP
         return name[:index], name[index:]
     else:
@@ -183,7 +192,8 @@ class TokenTransformer:
 
         def finditer_overlapping(pattern, text):
             for counter in range(len(text)):
-                if match := pattern.match(text, counter):
+                match = pattern.match(text, counter)
+                if match:
                     yield match
 
         def text_stream_searcher(start, end):
