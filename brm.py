@@ -2,16 +2,17 @@ import importlib
 import inspect
 import io
 import re
+import sys
 import token
 import tokenize
-from dataclasses import dataclass
 from enum import IntEnum
 
-
-if not hasattr(token, "EXACT_TOKEN_TYPES"):
+if sys.version_info < 3.8:
     token.COLONEQUAL = 0xFF
     token.tok_name[0xFF] = "COLONEQUAL"
     tokenize.EXACT_TOKEN_TYPES[":="] = token.COLONEQUAL
+
+if not hasattr(token, "EXACT_TOKEN_TYPES"):
     token.EXACT_TOKEN_TYPES = tokenize.EXACT_TOKEN_TYPES
 
 token.EXACT_TOKEN_NAMES = dict(
@@ -19,10 +20,7 @@ token.EXACT_TOKEN_NAMES = dict(
 )
 
 
-@dataclass
 class Slice:
-    s: slice
-
     def __init__(self, *args):
         self.s = slice(*args)
 
@@ -32,10 +30,10 @@ class Slice:
         self.s = slice(start, stop)
 
 
-@dataclass(unsafe_hash=True)
 class TextStreamTokenPosition:
-    start: int
-    end: int
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
 
 
 class Priority(IntEnum):
