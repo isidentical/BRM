@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import argparse
 import difflib
 import token
 import tokenize
 from contextlib import suppress
+from dataclasses import dataclass
+from typing import Dict, List
 
 from brm import (
     NoLineTransposer,
@@ -16,6 +20,13 @@ dot_name = "(name( dot name)*)"
 newline_group = "(nl|newline)"
 
 
+@dataclass
+class ParseResult:
+    commas: Dict[str, TokenInfo]
+    modules: Dict[str, List[TokenInfo]]
+    newlines: Dict[str, TokenInfo]
+
+
 class ImportFixer(TokenTransformer):
     def __init__(self, modules, names):
         self.modules = modules
@@ -25,7 +36,11 @@ class ImportFixer(TokenTransformer):
     # import foo, bar
     # import foo, foo.bar
     # import foo.bar, bar.foo
-    @pattern("name", f"({dot_name}( comma {dot_name})*)", newline_group)
+    @pattern(
+        "name",
+        f"((nl )?{dot_name}( comma (nl )?{dot_name})*( nl)?)",
+        newline_group,
+    )
     def fix_import_stmt(self, stmt, *tokens, removals=None):
         if stmt.string != "import":
             return
@@ -33,7 +48,9 @@ class ImportFixer(TokenTransformer):
         module = []
         commas = {}
         modules = {}
+        newlines = {}
         token_info = iter(tokens)
+        first_module_newline = None
         if removals is None:
             # cant use removals = removals or self.modules
             # because caller might be call this with removals = []
@@ -49,23 +66,39 @@ class ImportFixer(TokenTransformer):
             commas[pretty_name] = comma
             module.clear()
 
-        with suppress(StopIteration):
-            while (current := next(token_info)).type not in {
-                token.NEWLINE,
-                token.NL,
-            }:
-                token_type = self._get_type(current)
-                if token_type == token.COMMA:
-                    add_module(current)
-                else:
-                    module.append(current)
-
+        def add_newline(newline):
+            last_module = tuple(modules.keys())
+            if len(last_module) == 0:
+                first_module_newline = newline
             else:
-                add_module(None)
-                newline = current
+                last_module = last_module[-1]
+                # this relies on dicts are preserving insertion order
+                # they are, since 3.6 for CPython
+                # 3.7 for other implementations
+                newlines[last_module] = newline
+
+        *module_tokens, newline = token_info
+        for module_token in module_tokens:
+            if self._get_type(module_token) == token.COMMA:
+                add_module(module_token)
+            elif self._get_type(module_token) == token.NL:
+                add_newline(module_token)
+            else:
+                module.append(module_token)
+        else:
+            add_module(None)
+
+        first_import = tuple(modules.keys())[0]
+
+        if first_module_newline:
+            newlines[first_import] = first_module_newline
+
+        if newlines:
+            # that means this was just a parse action
+            # and we'll return what we got
+            return ParseResult(commas, modules, newlines)
 
         removeds, remove_offset, first_import_offset = 0, 0, 0
-        first_import = tuple(modules.keys())[0]
         first_import_removed = False
         fixed_tokens = []
         for module, module_tokens in modules.items():
@@ -81,7 +114,8 @@ class ImportFixer(TokenTransformer):
                     first_import_removed = True
                     first_import_offset = -self.directional_length(
                         [module_tokens[0], stmt]
-                    )  # end to start difference
+                    )
+                    # end to start difference
                     # calculates distance between import's end and module name's start
                     # import foo => 1
                     # import  foo => 2
@@ -196,19 +230,53 @@ class ImportFixer(TokenTransformer):
         newline_group,
     )
     @Priority.CANCEL_PENDING
-    def test(self, stmt, *tokens):
-        if stmt.string != "from":
+    def test(self, from_stmt, *tokens):
+        if from_stmt.string != "from":
             return
 
         stream_token = iter(tokens)
         module = [next(stream_token)]
-        module_parts, current = self.find_module_for_from_import_stmt(
+        module_parts, import_stmt = self.find_module_for_from_import_stmt(
             stream_token
         )
         module.extend(module_parts)
 
         if "".join(token.string for token in module) in self.modules:
             raise NoLineTransposer
+
+        name_part = []
+        lpar = next(stream_token)
+        while self._get_type(current := next(stream_token)) != token.RPAR:
+            name_part.append(current)
+        rpar = current
+        newline = next(stream_token)
+
+        # now we have
+        # from_stmt => from
+        # module => <module>
+        # import_stmt = import
+        # left par => (
+        # name_part => <name>, [nl]<name>, ....
+        # right par => )
+
+        result = self.fix_import_stmt(
+            import_stmt, *name_part, newline, removals=self.names
+        )
+        if isinstance(result, ParseResult):
+            pass
+        else:
+            result = result[1:-1]
+            overflow = self.directional_length(
+                name_part
+            ) - self.directional_length(result)
+            return [
+                from_stmt,
+                *module,
+                import_stmt,
+                lpar,
+                *result,
+                *self.shift_all([rpar, newline], x_offset=-overflow),
+            ]
 
 
 def main():
