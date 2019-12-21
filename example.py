@@ -161,9 +161,13 @@ def main():
         content = f.read()
         result = fixer.transform(content)
 
+    union_skipper = 0
     for line in difflib.unified_diff(
         content.splitlines(), result.splitlines(), n=namespace.n
     ):
+        if union_skipper < 4:
+            union_skipper += 1
+            continue
         print(line)
 
 
