@@ -6,7 +6,7 @@ import token
 import tokenize
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from brm import (
     NoLineTransposer,
@@ -24,7 +24,7 @@ newline_group = "(nl|newline)"
 class ParseResult:
     commas: Dict[str, TokenInfo]
     modules: Dict[str, List[TokenInfo]]
-    newlines: Dict[str, TokenInfo]
+    newlines: List[TokenInfo]
 
 
 class ImportFixer(TokenTransformer):
@@ -37,9 +37,7 @@ class ImportFixer(TokenTransformer):
     # import foo, foo.bar
     # import foo.bar, bar.foo
     @pattern(
-        "name",
-        f"((nl )?{dot_name}( comma (nl )?{dot_name})*( nl)?)",
-        newline_group,
+        "name", f"({dot_name}( comma (nl )?{dot_name})*( nl)?)", newline_group,
     )
     def fix_import_stmt(self, stmt, *tokens, removals=None):
         if stmt.string != "import":
@@ -48,9 +46,8 @@ class ImportFixer(TokenTransformer):
         module = []
         commas = {}
         modules = {}
-        newlines = {}
+        newlines = []
         token_info = iter(tokens)
-        first_module_newline = None
         if removals is None:
             # cant use removals = removals or self.modules
             # because caller might be call this with removals = []
@@ -66,32 +63,19 @@ class ImportFixer(TokenTransformer):
             commas[pretty_name] = comma
             module.clear()
 
-        def add_newline(newline):
-            last_module = tuple(modules.keys())
-            if len(last_module) == 0:
-                first_module_newline = newline
-            else:
-                last_module = last_module[-1]
-                # this relies on dicts are preserving insertion order
-                # they are, since 3.6 for CPython
-                # 3.7 for other implementations
-                newlines[last_module] = newline
-
         *module_tokens, newline = token_info
         for module_token in module_tokens:
             if self._get_type(module_token) == token.COMMA:
                 add_module(module_token)
             elif self._get_type(module_token) == token.NL:
-                add_newline(module_token)
+                newlines.append(module_token)
             else:
                 module.append(module_token)
         else:
             add_module(None)
 
-        first_import = tuple(modules.keys())[0]
-
-        if first_module_newline:
-            newlines[first_import] = first_module_newline
+        all_imports = tuple(modules.keys())
+        first_import, last_import = all_imports[0], all_imports[-1]
 
         if newlines:
             # that means this was just a parse action
@@ -104,11 +88,7 @@ class ImportFixer(TokenTransformer):
         for module, module_tokens in modules.items():
             module_tokens = module_tokens.copy()
 
-            if commas.get(module):
-                comma = commas[module]
-            else:
-                comma = None
-
+            comma = commas.get(module)
             if module in removals:
                 if module == first_import:
                     first_import_removed = True
@@ -259,11 +239,54 @@ class ImportFixer(TokenTransformer):
         # name_part => <name>, [nl]<name>, ....
         # right par => )
 
+        def reorder_newlines(modules, newlines):
+            lined_newlines = {}
+            ordered_newlines = {}
+            for newline in newlines:
+                if newline.start[0] == newline.end[0]:
+                    lined_newlines[newline.start[0]] = newline
+            for module, module_tokens in modules.items():
+                last = module_tokens[-1]
+                if lined_newlines.get(last.end[0]):
+                    ordered_newlines[module] = lined_newlines[last.end[0]]
+            return ordered_newlines
+
         result = self.fix_import_stmt(
             import_stmt, *name_part, newline, removals=self.names
         )
         if isinstance(result, ParseResult):
-            pass
+            newlines = reorder_newlines(result.modules, result.newlines)
+            key_state = [key in self.names for key in result.modules.keys()]
+            if all(key_state):
+                raise NoLineTransposer
+            elif not any(key_state):
+                return
+
+            # now we are ensured we have some imports left
+            y_offset = 0
+            fixed_tokens = [from_stmt, *module, import_stmt, lpar]
+            last_known_newline = tuple(newlines.values())[0]
+            if (for_n := result.newlines[0]).end[
+                0
+            ] != last_known_newline.start[0]:
+                fixed_tokens.append(for_n)
+            for module, module_tokens in result.modules.items():
+                module_tokens = module_tokens.copy()
+                if module in self.names:
+                    y_offset -= int(module in newlines)
+                    continue
+                if result.commas.get(module):
+                    module_tokens.append(result.commas[module])
+                if newlines.get(module):
+                    module_tokens.append(newlines[module])
+                fixed_tokens.extend(
+                    self.shift_all(module_tokens, y_offset=y_offset)
+                )
+
+            fixed_tokens.extend(
+                self.shift_all([rpar, newline], y_offset=y_offset)
+            )
+            return fixed_tokens
         else:
             result = result[1:-1]
             overflow = self.directional_length(
