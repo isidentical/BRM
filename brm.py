@@ -12,6 +12,10 @@ if sys.version_info < (3, 8):
     token.tok_name[0xFF] = "COLONEQUAL"
     tokenize.EXACT_TOKEN_TYPES[":="] = token.COLONEQUAL
 
+if sys.version_info < (3, 7):
+    token.NL = 0xFF - 1
+    token.tok_name[0xFF - 1] = "NL"
+
 if not hasattr(token, "EXACT_TOKEN_TYPES"):
     token.EXACT_TOKEN_TYPES = tokenize.EXACT_TOKEN_TYPES
 
