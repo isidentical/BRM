@@ -53,17 +53,29 @@ class ImportFixer(TokenTransformer):
                 add_module(None)
                 newline = current
 
-        removeds, remove_offset = 0, 0
-        first_import_removed = tuple(modules.keys())[0] in self.modules
+        removeds, remove_offset, first_import_offset = 0, 0, 0
+        first_import = tuple(modules.keys())[0]
+        first_import_removed = False
         fixed_tokens = []
         for module, module_tokens in modules.items():
             module_tokens = module_tokens.copy()
+
             if commas.get(module):
                 comma = commas[module]
             else:
                 comma = None
 
             if module in self.modules:
+                if module == first_import:
+                    first_import_removed = True
+                    first_import_offset = -self.directional_length(
+                        [module_tokens[0], stmt]
+                    )  # end to start difference
+                    # calculates distance between import's end and module name's start
+                    # import foo => 1
+                    # import  foo => 2
+                    # import   foo => 3
+
                 removeds += 1
                 remove_offset += self.directional_length(module_tokens)
                 if comma:
@@ -90,19 +102,12 @@ class ImportFixer(TokenTransformer):
         else:
             raise NoLineTransposer
 
-        # pad first import
+        # pad the new first import
         if first_import_removed:
-            first_import = []
-            imports = iter(fixed_tokens[1:])
-            with suppress(StopIteration):
-                while self._get_type(current := next(imports)) != token.COMMA:
-                    first_import.append(current)
-
-            difference = self.directional_length(
-                fixed_tokens[len(first_import) :]
-            )
+            current_offset = -self.directional_length([fixed_tokens[1], stmt])
+            current_offset -= first_import_offset
             fixed_tokens = self.shift_after(
-                1, fixed_tokens, x_offset=-difference
+                1, fixed_tokens, x_offset=-current_offset
             )
 
         return self.shift_after(1, fixed_tokens)
