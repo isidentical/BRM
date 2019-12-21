@@ -6,5 +6,6 @@ import importlib.util, importlib
 import multiprocessing.connection, multiprocessing.pool, multiprocessing.popen_fork
 import  http.server, http.client
 
-from foo import bar
-from foo.bar import foo
+from a import b
+from c.d import e
+from f.g import h, j.k

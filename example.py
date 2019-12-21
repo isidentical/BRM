@@ -25,7 +25,7 @@ class ImportFixer(TokenTransformer):
     # import foo, foo.bar
     # import foo.bar, bar.foo
     @pattern("name", f"({dot_name}( comma {dot_name})*)", "(newline|nl)")
-    def fix_import_stmt(self, stmt, *tokens):
+    def fix_import_stmt(self, stmt, *tokens, removals=None):
         if stmt.string != "import":
             return
 
@@ -33,6 +33,7 @@ class ImportFixer(TokenTransformer):
         commas = {}
         modules = {}
         token_info = iter(tokens)
+        removals = removals or self.modules
 
         def add_module(comma):
             pretty_name = "".join(
@@ -71,7 +72,7 @@ class ImportFixer(TokenTransformer):
             else:
                 comma = None
 
-            if module in self.modules:
+            if module in removals:
                 if module == first_import:
                     first_import_removed = True
                     first_import_offset = -self.directional_length(
@@ -120,6 +121,7 @@ class ImportFixer(TokenTransformer):
 
     # from foo import bar
     # from foo import bar, baz
+    # from foo.bar import bar, bar.baz
 
     @pattern(
         "name",
@@ -149,14 +151,27 @@ class ImportFixer(TokenTransformer):
         if "".join(token.string for token in module) in self.modules:
             raise NoLineTransposer
 
+        new_imports = self.fix_import_stmt(
+            current, *stream_token, removals=self.names
+        )
+        # we are sending the `import y, z` part of `from x import y, z`
+        # if both y and z are unused, it will raise NoLineTransposer and
+        # we are not going to do anything about it, we'll just pass it through
+        # to TokenTransformer and it will remove the rest of the tokens.
+        # if there are tokens, we'll get new version of `import y, z`
+        return [stmt, *module, *new_imports]
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--remove-modules", nargs="*")
+    parser.add_argument("--remove-names", nargs="*")
     parser.add_argument("-n", type=int, default=2)
     parser.add_argument("path")
     namespace = parser.parse_args()
-    fixer = ImportFixer(namespace.remove_modules or [], [])
+    fixer = ImportFixer(
+        namespace.remove_modules or [], namespace.remove_names or []
+    )
     with open(namespace.path) as f:
         content = f.read()
         result = fixer.transform(content)
