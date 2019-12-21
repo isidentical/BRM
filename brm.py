@@ -44,6 +44,21 @@ class Priority(IntEnum):
     FIRST = 0
     AVG = 1
     LAST = 2
+    CANCEL_PENDING = 3
+
+    @staticmethod
+    def get(func):
+        if hasattr(func, "priority"):
+            return func.priority
+        else:
+            return Priority.AVG
+
+    def filter(self, patterns):
+        new_patterns = patterns
+        for key, func in patterns:
+            if self.get(func) < self:
+                new_patterns.remove((key, func))
+        return new_patterns
 
     def __call__(self, func):
         func.priority = self
@@ -235,9 +250,15 @@ class TokenTransformer:
         stream_tokens_positions = {}
         stream_tokens_reindex()
         patterns = sorted(
-            patterns.items(),
-            key=lambda kv: getattr(kv[1], "priority", Priority.AVG),
+            patterns.items(), key=lambda kv: Priority.get(kv[1]),
         )
+
+        if any(
+            k
+            for k, v in patterns
+            if Priority.get(v) is Priority.CANCEL_PENDING
+        ):
+            patterns = Priority.CANCEL_PENDING.filter(patterns)
 
         for pattern, visitor in patterns:
             slices = []

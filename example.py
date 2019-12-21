@@ -4,7 +4,13 @@ import token
 import tokenize
 from contextlib import suppress
 
-from brm import NoLineTransposer, TokenTransformer, get_type_from_name, pattern
+from brm import (
+    NoLineTransposer,
+    Priority,
+    TokenTransformer,
+    get_type_from_name,
+    pattern,
+)
 
 dot_name = "(name( dot name)*)"
 
@@ -114,11 +120,34 @@ class ImportFixer(TokenTransformer):
 
     # from foo import bar
     # from foo import bar, baz
-    # from foo import (
-    #   foo,
-    #   bar,
-    #   baz
-    # )
+
+    @pattern(
+        "name",
+        dot_name,
+        "name",
+        f"({dot_name}( comma {dot_name})*)",
+        "(newline|nl)",
+    )
+    @Priority.CANCEL_PENDING
+    def fix_from_import_stmt(self, stmt, *tokens):
+        if stmt.string != "from":
+            return
+
+        stream_token = iter(tokens)
+        module = [next(stream_token)]
+        have_dot = False
+        try:
+            while self._get_type(current := next(stream_token)) == token.DOT:
+                module.append(current)
+                module.append(next(stream_token))
+            else:
+                if current.string != "import":
+                    return
+        except StopIteration:
+            return
+
+        if "".join(token.string for token in module) in self.modules:
+            raise NoLineTransposer
 
 
 def main():
