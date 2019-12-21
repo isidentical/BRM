@@ -253,22 +253,21 @@ class TokenTransformer:
             patterns.items(), key=lambda kv: Priority.get(kv[1]),
         )
 
-        if any(
-            k
-            for k, v in patterns
-            if Priority.get(v) is Priority.CANCEL_PENDING
-        ):
-            patterns = Priority.CANCEL_PENDING.filter(patterns)
-
+        have_match = False
         for pattern, visitor in patterns:
             slices = []
             for match in finditer_overlapping(pattern, stream_tokens_text):
+                have_match = True
                 start_index, end_index = text_stream_searcher(*match.span())
                 slices.append(Slice(start_index, end_index))
 
             stream_tokens = self._slice_replace(visitor, slices, stream_tokens)
             stream_tokens_text = token_to_text(stream_tokens)
             stream_tokens_reindex()
+
+            if Priority.get(visitor) is Priority.CANCEL_PENDING and have_match:
+                break
+            have_match = False
 
         return stream_tokens
 

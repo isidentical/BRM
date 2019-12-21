@@ -180,7 +180,7 @@ def main():
     for line in difflib.unified_diff(
         content.splitlines(), result.splitlines(), n=namespace.n
     ):
-        if union_skipper < 4:
+        if union_skipper < 3:
             union_skipper += 1
             continue
         print(line)
