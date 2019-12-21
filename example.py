@@ -33,7 +33,10 @@ class ImportFixer(TokenTransformer):
         commas = {}
         modules = {}
         token_info = iter(tokens)
-        removals = removals or self.modules
+        if removals is None:
+            # cant use removals = removals or self.modules
+            # because caller might be call this with removals = []
+            removals = self.modules
 
         def add_module(comma):
             pretty_name = "".join(

@@ -41,10 +41,10 @@ class TextStreamTokenPosition:
 
 
 class Priority(IntEnum):
+    CANCEL_PENDING = -1
     FIRST = 0
     AVG = 1
     LAST = 2
-    CANCEL_PENDING = 3
 
     @staticmethod
     def get(func):
