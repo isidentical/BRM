@@ -57,6 +57,7 @@ class ImportFixer(TokenTransformer):
         first_import_removed = tuple(modules.keys())[0] in self.modules
         fixed_tokens = []
         for module, module_tokens in modules.items():
+            module_tokens = module_tokens.copy()
             if commas.get(module):
                 comma = commas[module]
             else:
@@ -68,9 +69,13 @@ class ImportFixer(TokenTransformer):
                 if comma:
                     remove_offset += self.directional_length([comma])
                 continue
-            fixed_tokens.extend(module_tokens)
+
             if comma:
-                fixed_tokens.append(comma)
+                module_tokens.append(comma)
+
+            fixed_tokens.extend(
+                self.shift_all(module_tokens, x_offset=-remove_offset)
+            )
 
         any_imports = removeds < len(modules)
         if any_imports:
@@ -100,7 +105,7 @@ class ImportFixer(TokenTransformer):
                 1, fixed_tokens, x_offset=-difference
             )
 
-        return self.shift_after(1, fixed_tokens, x_offset=-remove_offset)
+        return self.shift_after(1, fixed_tokens)
 
     # from foo import bar
     # from foo import bar, baz
