@@ -16,6 +16,9 @@ from brm import (
     pattern,
 )
 
+__author__ = "Batuhan Taskaya"
+__copyright__ = f"Copyright 2019, {__author__}"
+
 dot_name = "(name( dot name)*)"
 newline_group = "(nl|newline)"
 
