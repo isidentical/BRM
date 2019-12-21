@@ -181,11 +181,15 @@ class TokenTransformer:
 
     def _slice_replace(self, visitor, pattern_slices, stream_tokens):
         offset = 0
+        state = True
         for pattern_slice in pattern_slices:
             pattern_slice.increase(offset)
             matching_tokens = stream_tokens[pattern_slice.s]
             try:
-                tokens = visitor(*matching_tokens) or matching_tokens
+                tokens = visitor(*matching_tokens)
+                if tokens is None or tokens == matching_tokens:
+                    state = False
+                    tokens = matching_tokens
                 tokens, matching_tokens, stream_tokens = self.set_tokens(
                     tokens, pattern_slice.s, matching_tokens, stream_tokens
                 )
@@ -198,7 +202,7 @@ class TokenTransformer:
             offset += len(tokens) - len(matching_tokens)
             stream_tokens[pattern_slice.s] = tokens
 
-        return stream_tokens
+        return stream_tokens, state
 
     def _pattern_transformer_regex(self, patterns, stream_tokens):
         def token_to_text(stream_tokens):
@@ -253,20 +257,27 @@ class TokenTransformer:
             patterns.items(), key=lambda kv: Priority.get(kv[1]),
         )
 
-        have_match = False
+        only_high = False
         for pattern, visitor in patterns:
+            if (
+                only_high
+                and Priority.get(visitor) is not Priority.CANCEL_PENDING
+            ):
+                continue
+
             slices = []
             for match in finditer_overlapping(pattern, stream_tokens_text):
-                have_match = True
                 start_index, end_index = text_stream_searcher(*match.span())
                 slices.append(Slice(start_index, end_index))
 
-            stream_tokens = self._slice_replace(visitor, slices, stream_tokens)
+            stream_tokens, state = self._slice_replace(
+                visitor, slices, stream_tokens
+            )
             stream_tokens_text = token_to_text(stream_tokens)
             stream_tokens_reindex()
 
-            if Priority.get(visitor) is Priority.CANCEL_PENDING and have_match:
-                break
+            if Priority.get(visitor) is Priority.CANCEL_PENDING and state:
+                only_high = True
             have_match = False
 
         return stream_tokens

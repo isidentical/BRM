@@ -13,6 +13,7 @@ from brm import (
 )
 
 dot_name = "(name( dot name)*)"
+newline_group = "(nl|newline)"
 
 
 class ImportFixer(TokenTransformer):
@@ -24,7 +25,7 @@ class ImportFixer(TokenTransformer):
     # import foo, bar
     # import foo, foo.bar
     # import foo.bar, bar.foo
-    @pattern("name", f"({dot_name}( comma {dot_name})*)", "(newline|nl)")
+    @pattern("name", f"({dot_name}( comma {dot_name})*)", newline_group)
     def fix_import_stmt(self, stmt, *tokens, removals=None):
         if stmt.string != "import":
             return
@@ -122,6 +123,18 @@ class ImportFixer(TokenTransformer):
 
         return self.shift_after(1, fixed_tokens)
 
+    def find_module_for_from_import_stmt(self, token_iterator):
+        have_dot = False
+        module = []
+        try:
+            while self._get_type(current := next(token_iterator)) == token.DOT:
+                module.append(current)
+                module.append(next(token_iterator))
+        except StopIteration:
+            return None
+        else:
+            return module, current
+
     # from foo import bar
     # from foo import bar, baz
     # from foo.bar import bar, bar.baz
@@ -131,7 +144,7 @@ class ImportFixer(TokenTransformer):
         dot_name,
         "name",
         f"({dot_name}( comma {dot_name})*)",
-        "(newline|nl)",
+        newline_group,
     )
     @Priority.CANCEL_PENDING
     def fix_from_import_stmt(self, stmt, *tokens):
@@ -140,16 +153,10 @@ class ImportFixer(TokenTransformer):
 
         stream_token = iter(tokens)
         module = [next(stream_token)]
-        have_dot = False
-        try:
-            while self._get_type(current := next(stream_token)) == token.DOT:
-                module.append(current)
-                module.append(next(stream_token))
-            else:
-                if current.string != "import":
-                    return
-        except StopIteration:
-            return
+        module_parts, current = self.find_module_for_from_import_stmt(
+            stream_token
+        )
+        module.extend(module_parts)
 
         if "".join(token.string for token in module) in self.modules:
             raise NoLineTransposer
@@ -163,6 +170,45 @@ class ImportFixer(TokenTransformer):
         # to TokenTransformer and it will remove the rest of the tokens.
         # if there are tokens, we'll get new version of `import y, z`
         return [stmt, *module, *new_imports]
+
+    # name dot_name name lpar \
+    # nl? dot_name (comma nl? dot_name)* nl? \
+    # rpar newline
+
+    # [<smth>] = optional <smth>
+    # from <module> import ([\n] <name>[,[\n]<name>][\n])
+
+    # from (x, y, z)
+    # from (x.y, z.q)
+    # from (
+    #   x,
+    #   y,
+    #   z
+    # )
+
+    @pattern(
+        "name",
+        dot_name,
+        "name",
+        "lpar",
+        f"((nl )?{dot_name}( comma (nl )?{dot_name})*( nl)?)",
+        "rpar",
+        newline_group,
+    )
+    @Priority.CANCEL_PENDING
+    def test(self, stmt, *tokens):
+        if stmt.string != "from":
+            return
+
+        stream_token = iter(tokens)
+        module = [next(stream_token)]
+        module_parts, current = self.find_module_for_from_import_stmt(
+            stream_token
+        )
+        module.extend(module_parts)
+
+        if "".join(token.string for token in module) in self.modules:
+            raise NoLineTransposer
 
 
 def main():
