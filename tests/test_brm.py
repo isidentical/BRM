@@ -1,5 +1,7 @@
 import tokenize
 
+import pytest
+
 from brm import TokenTransformer, pattern
 
 REAL_CODE = """
@@ -15,6 +17,11 @@ class X:
         def baz():
             pass
 """
+
+
+@pytest.fixture
+def transformer():
+    return TokenTransformer()
 
 
 def test_token_transformer_new_syntax():
@@ -72,3 +79,10 @@ def test_token_transformer_regex_pattern():
     assert (
         foo.transform("name1 name2 name3 name4") == "name1 name2 foobar foobar"
     )
+
+
+def test_token_transformer_directional_length(transformer):
+    import_stmt = transformer.quick_tokenize("import foo")
+    from_import_stmt = transformer.quick_tokenize("from foo import bar, baz")
+    assert transformer.directional_length(import_stmt) == 10
+    assert transformer.directional_length(from_import_stmt[3:]) == 8
