@@ -1,10 +1,6 @@
 Bicycle Repair Man
 ==================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
 BRM is a short way of rewriting python source with transformation of tokens.
 It offers a high level interface for token transformation with automating 
 most of manual stuff.
@@ -39,11 +35,3 @@ Support
 -------
 
 If you are having issues, please let us know.
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
