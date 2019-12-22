@@ -25,6 +25,15 @@ or
     pip install git+https://github.com/isidentical/BRM.git
 
 
+
+Tutorials
+---------
+
+.. toctree::
+   :maxdepth: 2
+   
+   tutorial/start.rst
+
 Contribute
 ----------
 
