@@ -117,6 +117,7 @@ class ImportFixer(TokenTransformer):
                 self.shift_all(module_tokens, x_offset=-remove_offset)
             )
 
+        newline = self.increase(newline, amount=-remove_offset, page=1)
         any_imports = removeds < len(modules)
         if any_imports:
             fixed_tokens.insert(0, stmt)
@@ -307,6 +308,7 @@ class ImportFixer(TokenTransformer):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--skip-boil", action="store_true")
     parser.add_argument("--remove-modules", nargs="*")
     parser.add_argument("--remove-names", nargs="*")
     parser.add_argument("-n", type=int, default=2)
@@ -323,7 +325,7 @@ def main():
     for line in difflib.unified_diff(
         content.splitlines(), result.splitlines(), n=namespace.n
     ):
-        if union_skipper < 3:
+        if namespace.skip_boil and union_skipper < 3:
             union_skipper += 1
             continue
         print(line)
