@@ -396,10 +396,13 @@ class TokenTransformer:
     def is_valid_position(self, token):
         return all(pos >= 0 for pos in (token.start + token.end))
 
-    def quick_tokenize(self, source):
-        return list(tokenize.generate_tokens(io.StringIO(source).readline))[
-            :-2
-        ]
+    def quick_tokenize(self, source, strip=False):
+        token_stream = list(
+            tokenize.generate_tokens(io.StringIO(source).readline)
+        )
+        if strip:
+            token_stream = token_stream[:-2]
+        return token_stream
 
     def dummy(self, token):
         # Implement dummy on subclasses for logging purposes or getting all tokens
