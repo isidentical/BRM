@@ -121,12 +121,3 @@ class ASTTransformer(ast.NodeTransformer, brm.TokenTransformer):
             return tree.body.extend(comments.values())
 
         # TODO: calculate comment range
-
-
-transformer = ASTTransformer()
-transformer.transform(
-    """
-# this code tells people
-# this is a fucking good code
-"""
-)
