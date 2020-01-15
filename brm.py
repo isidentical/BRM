@@ -415,7 +415,7 @@ class TokenTransformer:
     def is_valid_position(self, token):
         return all(pos >= 0 for pos in (token.start + token.end))
 
-    def quick_tokenize(self, source, strip=False):
+    def quick_tokenize(self, source, strip=True):
         token_stream = list(
             tokenize.generate_tokens(io.StringIO(source).readline)
         )
