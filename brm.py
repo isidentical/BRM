@@ -22,6 +22,8 @@ token.EXACT_TOKEN_NAMES = dict(
     zip(token.EXACT_TOKEN_TYPES.values(), token.EXACT_TOKEN_TYPES.keys())
 )
 
+EXPANDS = {"any": "(.*?)"}
+
 
 class Slice:
     def __init__(self, *args):
@@ -121,6 +123,7 @@ def pattern(*pattern_tokens):
             add_parenthesis = not (
                 pattern_part.startswith("(") and pattern_part.endswith(")")
             )
+            pattern_part = EXPANDS.get(pattern_part, pattern_part)
             if index == 0 or not add_parenthesis:
                 template = fr"{pattern_part}"
             elif add_parenthesis:
@@ -155,13 +158,22 @@ class TokenTransformer:
         token.EXACT_TOKEN_TYPES[token_string] = token_index
 
     def _register_tokens(self):
+        escaped_tokens = []
         for name, member in inspect.getmembers(self):
             if name.startswith("register_"):
                 token_name = name.replace("register_", "", 1).upper()
                 token_string = member()
                 self._register_token(token_string, token_name)
+                escaped_tokens.append(re.escape(token_string))
 
-        importlib.reload(tokenize)
+        tokenize.PseudoToken = tokenize.Whitespace + tokenize.group(
+            *escaped_tokens,
+            tokenize.PseudoExtras,
+            tokenize.Number,
+            tokenize.Funny,
+            tokenize.ContStr,
+            tokenize.Name,
+        )
 
     def _pattern_search(self):
         patterns = {}
