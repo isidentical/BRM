@@ -1,0 +1,7 @@
+try:
+    import brm
+    import codecs
+except ImportError:
+    pass
+else:
+    codecs.register(brm.search)

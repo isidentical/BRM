@@ -1,11 +1,19 @@
-import importlib
+import codecs
+import importlib.util
 import inspect
 import io
 import re
+import shutil
 import sys
 import token
 import tokenize
+from argparse import ArgumentParser
 from enum import IntEnum
+from functools import partial
+from pathlib import Path
+
+TRANSFORMER_PATH = Path("~/.brm").expanduser()
+TRANSFORMER_PATH.mkdir(exist_ok=True)
 
 if sys.version_info < (3, 8):
     token.COLONEQUAL = 0xFF
@@ -418,3 +426,62 @@ class TokenTransformer:
     def dummy(self, token):
         # Implement dummy on subclasses for logging purposes or getting all tokens
         return None
+
+
+def get_transformer_modules():
+    for path in TRANSFORMER_PATH.glob("**/*.py"):
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        yield module
+
+
+def get_transformers():
+    for module in get_transformer_modules():
+        for entry, possible_transformer in vars(module).items():
+            if (
+                isinstance(possible_transformer, type)
+                and issubclass(possible_transformer, TokenTransformer)
+                and possible_transformer is not TokenTransformer
+            ):
+                yield possible_transformer()
+
+
+def decode(input, errors="strict", encoding=None):
+    if not isinstance(input, str):
+        input, _ = encoding.decode(input, errors)
+
+    for transformer in get_transformers():
+        input = transformer.transform(input)
+    return input, len(input)
+
+
+class IncrementalDecoder(codecs.BufferedIncrementalDecoder):
+    def _buffer_decode(self, input, errors, final):
+        return decode(input, errors, encoding=self._encoding)
+
+
+def search(name):
+    if "brm" in name:
+        encoding = name.strip("brm").strip("-") or "utf8"
+        encoding = codecs.lookup(encoding)
+        IncrementalDecoder._encoding = encoding
+
+        brm_codec = codecs.CodecInfo(
+            name="brm",
+            encode=encoding.encode,
+            decode=partial(decode, encoding=encoding),
+            incrementalencoder=encoding.incrementalencoder,
+            incrementaldecoder=IncrementalDecoder,
+            streamreader=encoding.streamreader,
+            streamwriter=encoding.streamwriter,
+        )
+        return brm_codec
+
+
+def main():
+    print(TRANSFORMER_PATH)
+
+
+if __name__ == "__main__":
+    main()
