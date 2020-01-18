@@ -1,12 +1,12 @@
 # Bicycle Repair Man
-BRM is a python source rewriting library with the freedom you are looking for. It gives you a chance to intervene lexing before any tree-like structre constructed. You are free to do on anything; change already constructed tokens with matching them according to your patterns, put **new** tokens and modify the lexer rules, refactor tons of python files without losing any information (full roundtripability).
+BRM is a python source rewriting library with the freedom you are looking for. It gives you a chance to intervene lexing before any tree-like structre constructed. You are free to do anything; change already constructed tokens with matching them according to your patterns, put **new** tokens and modify the lexer rules, refactor tons of python files without losing any information (full roundtripability).
 
 
 This long paragraph can be boring, let me show you some examples of what you can actually.
 
 
 I hate plus operator
-```
+```py
 class DestoryAllOfThem(TokenTransformer):
     def visit_plus(self, token):
         return token._replace(string="-")
@@ -34,7 +34,7 @@ assert "some more comments" in sqr.transform("√9 # some more comments")
 ## Making transformers permanent
 If you like your transformer and use it on the real python files, you can use `~/.brm` folder. Actually you shouldn't depend that folder, you can just write your transformer and do this `cp transformer.py $(python -m brm)`. It should print out the right location for transformers. After that operation you can just add `# coding: brm` comment to every python file you want to use your transformers. If you already using an encoding you can keep using it with `# coding: brm-<encoding>` like `# coding: brm-utf8` etc. Let's do an example
 
-```
+```py
 from brm import TokenTransformer, pattern
 
 class AlwaysTrue(TokenTransformer):
