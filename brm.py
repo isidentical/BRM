@@ -155,6 +155,8 @@ def pattern(*pattern_tokens):
 
 
 class TokenTransformer:
+    STRICT = True
+
     def _next_token_slot(self):
         index = max(token.tok_name.keys(), default=0)
         return index + 1
@@ -330,7 +332,7 @@ class TokenTransformer:
 
         return stream_tokens
 
-    def transform(self, source):
+    def transform(self, source, strictness=False):
         self._register_tokens()
         patterns = self._pattern_search()
 
@@ -347,7 +349,13 @@ class TokenTransformer:
             patterns, stream_tokens_buffer
         )
         stream_tokens = stream_tokens_buffer.copy()
-        source = tokenize.untokenize(stream_tokens)
+        try:
+            source = tokenize.untokenize(stream_tokens)
+        except ValueError:
+            if strictness or self.STRICT:
+                raise
+            else:
+                source = self.quick_untokenize(stream_tokens)
         return source
 
     def set_tokens(self, new_tokens, pattern, matching_tokens, all_tokens):
@@ -457,7 +465,10 @@ def decode(input, errors="strict", encoding=None):
         input, _ = encoding.decode(input, errors)
 
     for transformer in get_transformers():
-        input = transformer.transform(input)
+        try:
+            input = transformer.transform(input)
+        except Exception as exc:
+            print(exc)
     return input, len(input)
 
 
