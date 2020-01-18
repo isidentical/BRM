@@ -85,3 +85,7 @@ the text representation of this tokens is like this;
 ```
 NAME NAME EQEQUAL NAME COLON NEWLINE INDENT NUMBER PLUS NUMBER COMMENT NEWLINE DEDENT ENDMARKER
 ```
+And BRM process it like this
+
+
+![brm pattern show gif](docs/pattern.gif)
