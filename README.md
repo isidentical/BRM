@@ -89,3 +89,7 @@ And BRM process it like this
 
 
 ![brm pattern show gif](docs/pattern.gif)
+
+
+If you want to match binary plus operation here (`2 + 2`), you can create pattern with `number, plus, name`.
+If you want to match if statement's body, you can use some implicit tokens (which we can't show in the gif :D) called `INDENT` and `DEDENT`. So If there are only simple expressions or statements inside to if's body, you can create a pattern that starts with an indent token and takes anything between that indent and the dedent token, `indent, *any, dedent`. Any is a pattern that expands to any token, like regex's `(.?*)` capturing group. 
