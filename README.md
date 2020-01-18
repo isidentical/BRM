@@ -93,3 +93,10 @@ And BRM process it like this
 
 If you want to match binary plus operation here (`2 + 2`), you can create pattern with `number, plus, name`.
 If you want to match if statement's body, you can use some implicit tokens (which we can't show in the gif :D) called `INDENT` and `DEDENT`. So If there are only simple expressions or statements inside to if's body, you can create a pattern that starts with an indent token and takes anything between that indent and the dedent token, `indent, *any, dedent`. Any is a pattern that expands to any token, like regex's `(.?*)` capturing group. 
+
+# Some minor functions
+- `quick_tokenize(source: str)` => `List[TokenInfo]`, give some source and get some tokens that can construct the same source that was inputted.
+- `quick_untokenize(tokens: Sequence[TokenInfo])` => `str`, give some sequence of tokens and get a string form of it without any usage of positions. It helps the cases when you dont want to deal with preceding issues about token locations. If you want to get a pretty input with using token locations, call `tokenize.untokenize` directly.
+- `directional_length(tokens: Sequence[TokenInfo])` => `int`, calculate the X distance between start of the sequence and end of the sequence.
+- `shift_all(tokens: Sequence[TokenInfo], x_offset: int, y_offset: int)` => `int`, shift positions of all tokens in the given sequence
+- `get_type(token: TokenInfo)`
