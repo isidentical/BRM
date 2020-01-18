@@ -200,6 +200,9 @@ class TokenTransformer:
             type = stream_token.type
         return type
 
+    def _get_name(self, stream_token):
+        return token.tok_name[self._get_type(stream_token)]
+
     def _slice_replace(self, visitor, pattern_slices, stream_tokens):
         offset = 0
         state = True
@@ -228,8 +231,7 @@ class TokenTransformer:
     def _pattern_transformer_regex(self, patterns, stream_tokens):
         def token_to_text(stream_tokens):
             return " ".join(
-                token.tok_name[self._get_type(stream_token)]
-                for stream_token in stream_tokens
+                self._get_name(stream_token) for stream_token in stream_tokens
             )
 
         def finditer_overlapping(pattern, text):
