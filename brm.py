@@ -423,6 +423,11 @@ class TokenTransformer:
             token_stream = token_stream[:-2]
         return token_stream
 
+    def quick_untokenize(self, tokens):
+        return tokenize.untokenize(
+            (token.type, token.string) for token in tokens
+        )
+
     def dummy(self, token):
         # Implement dummy on subclasses for logging purposes or getting all tokens
         return None
