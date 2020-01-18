@@ -1,12 +1,10 @@
 import ast
-import token as t
+import token
 import tokenize
 from collections import namedtuple
 from copy import deepcopy
 
 import brm
-
-TOKEN_EATS = {ast.operator: 1}
 
 POSITION_INFO = ("lineno", "col_offset", "end_lineno", "end_col_offset")
 
@@ -61,63 +59,54 @@ def has_position(node):
     return False
 
 
-def get_token_eats(node, default=1):
-    node_type = type(node)
-    for base in node_type.mro():
-        if base in TOKEN_EATS:
-            return TOKEN_EATS[base]
-    else:
-        return default
+ast._Unparser.visit_Comment = lambda self, node: self.write(node.comment)
 
 
 class ASTTransformer(ast.NodeTransformer, brm.TokenTransformer):
     def transform(self, source):
         tree = ast.parse(source)
         tokens = self.quick_tokenize(source, strip=False)
-
+        self.set_parents(tree)
         self.insert_comments(tree, tokens)
-        self.mark(tree, tokens)
         source = tokenize.untokenize(tokens)
         return source
 
-    def mark(self, tree, tokens):
-        tokens = tuple(map(Position.from_token, tokens))
-        previous_node = None
-
+    def set_parents(self, tree):
         for node in ast.walk(tree):
-            if has_position(node):
-                node = Position.from_node(node)
-                node._tokens = self.search(node, tokens)
-            elif previous_node:
-                start = tokens.index(previous_node._tokens[-1]) + 1
-                amount = get_token_eats(node)
-                node._tokens = tokens[start : start + amount]
-            else:
-                node._tokens = tokens
+            for child in ast.iter_child_nodes(node):
+                child.parent = node
 
-            previous_node = node
-
-    def search(self, node, tokens):
-        matches = []
-        for token in tokens:
-            if node.can_cover(token):
-                matches.append(token)
-        return matches
+    def fetch_comments(self, stream_tokens):
+        comments = []
+        for stream_token in stream_tokens:
+            if stream_token.type == token.COMMENT:
+                comment = Comment.from_token(stream_token)
+                comments.append(
+                    Position.from_node(Comment.from_token(stream_token))
+                )
+        return comments
 
     def insert_comments(self, tree, tokens):
-        comments = {}
-        for token in tokens:
-            if token.type == t.COMMENT:
-                comment = Comment.from_token(token)
-                comments[comment.lineno] = comment
+        nodes = [
+            Position.from_node(node)
+            for node in ast.walk(tree)
+            if has_position(node)
+        ]
+        comments = self.fetch_comments(tokens)
+        connected_nodes = {}
 
-        if len(tree.body) > 0:
-            previous_node = tree.body[0]
-            prev_start, prev_end = (
-                previous_node.lineno,
-                previous_node.end_lineno,
-            )
-        else:
-            return tree.body.extend(comments.values())
+        for comment in comments:
+            node = min(*nodes, key=lambda node: node.distance_to(comment)).mod
+            after = comment.lineno >= node.lineno
+            if comment.lineno != node.lineno:
+                comment = comment._replace(
+                    mod=ast.copy_location(ast.Expr, comment.mod)
+                )
+            while not hasattr(node.parent, "body"):
+                node = node.parent
 
-        # TODO: calculate comment range
+            if node in node.parent.body:
+                index = node.parent.body.index(node) + int(after)
+            else:
+                index = 0
+            node.parent.body.insert(0, comment.mod)
