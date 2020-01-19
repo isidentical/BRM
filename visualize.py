@@ -2,6 +2,7 @@ import token
 import tokenize
 from argparse import ArgumentParser
 from pathlib import Path
+from string import Template
 
 import svgwrite
 
@@ -62,16 +63,51 @@ def main():
     if not args.output.is_dir():
         raise ValueError("output should be an existing directory")
 
-    sources = []
+    index = open(args.output / "index.html", "w")
     for frame, token in enumerate(tokens):
-        sources.append(
+        idx = f"frame_{frame}"
+        index.write(f'<div id="{idx}">')
+        index.write(
             create_board(
-                transformer, tokens, token, args.output / f"frame_{frame}.svg"
+                transformer, tokens, token, args.output / f"{idx}.svg"
             )
         )
-    with open(args.output / "index.html", "w") as index:
-        index.write("\n\n\n".join(sources))
+        index.write("</div>")
 
+    index.write(STATIC_HTML.substitute({"total_frames": frame + 1}))
+    index.close()
+
+
+# I SUCK AT SVGS
+# I AM SURE THERE IS A WAY TO
+# DO THIS WITHOUT JS BUT I COULDN'T
+# FIGURE OUT
+# I DONT KNOW JS
+# I AM JUST TRYING
+# PLEASE HELP ME TO ANIMATE
+# IF YOU CAN
+STATIC_HTML = Template(
+    """
+<script>
+var i;
+for (i = 0; i < ${total_frames}; i++) { 
+    var div = document.getElementById("frame_" + i);
+    div.style.display = "none";
+}
+
+var i = 0, last;
+var interval_id = setInterval(function () {
+        var div = document.getElementById("frame_" + i);
+        div.style.display = "block";
+        last && (last.style.display = "none");
+        last = div;
+        i += 1;
+        if (i == ${total_frames}) clearInterval(interval_id);
+    },
+    700);
+</script>
+"""
+)
 
 if __name__ == "__main__":
     main()
