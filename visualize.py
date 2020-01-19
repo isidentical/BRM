@@ -1,18 +1,19 @@
-# requiurements: svgwrite
+# requirements: svgwrite
 import tempfile
 import token
 import tokenize
 import webbrowser
 from argparse import ArgumentParser, FileType
+from contextlib import contextmanager
 from string import Template
 from tempfile import NamedTemporaryFile
 
 import svgwrite
 
-from brm import TokenTransformer
+from brm import TokenTransformer, pattern
 
 
-def create_board(transformer, stream_tokens, highlight):
+def create_board(transformer, stream_tokens, highlight, pattern=None):
     drawing = svgwrite.Drawing()
     drawing.add(
         drawing.rect(
@@ -29,7 +30,7 @@ def create_board(transformer, stream_tokens, highlight):
         y_pos = 25 + stream_token.start[0] * 25
         source = stream_token.string
 
-        if highlight == stream_token:
+        if stream_token in highlight:
             if stream_token.type == token.NEWLINE:
                 source = "|"
                 x_pos += 7
@@ -38,27 +39,28 @@ def create_board(transformer, stream_tokens, highlight):
 
         for extra, line in enumerate(source.splitlines()):
             span = drawing.tspan(line, insert=(x_pos, y_pos + 25 * extra))
-            if highlight == stream_token:
+            if stream_token in highlight:
                 span.stroke(color="red")
             text.add(span)
 
-    cursor = drawing.tspan(
-        f"Current token: {transformer._get_name(highlight)}", (100, y_pos + 50)
-    )
+    if pattern is not None:
+        cursor = drawing.tspan(f"Pattern: {pattern}", (100, y_pos + 50))
+    else:
+        cursor = drawing.tspan(
+            f"Current token: {transformer._get_name(*highlight)}",
+            (100, y_pos + 50),
+        )
+
     cursor.stroke(color="black")
     text.add(cursor)
     drawing.add(text)
     return drawing.tostring()
 
 
-def write_board(page, transformer, tokens):
+@contextmanager
+def document(page, transformer, tokens):
     page.write("<html><head><title>BRM Visualizer</title></head><body>")
-    for frame, token in enumerate(tokens):
-        idx = f"frame_{frame}"
-        page.write(
-            f'<div id="frame_{frame}">{create_board(transformer, tokens, token)}</div>'
-        )
-    page.write(STATIC_HTML.substitute({"total_frames": len(tokens)}))
+    yield page
     page.write("</body></html>")
 
 
@@ -71,18 +73,46 @@ def main():
         default="-",
         help="file to visualize",
     )
+    parser.add_argument(
+        "pattern",
+        nargs="?",
+        default=None,
+        help="pattern to visualize on board",
+    )
     args = parser.parse_args()
 
     transformer = TokenTransformer()
-    tokens = transformer.quick_tokenize(args.file.read())
+    source = args.file.read()
+    tokens = transformer.quick_tokenize(source)
     args.file.close()
     print("Processing input...")
 
     if tokens[-1].end[0] > 15:
         raise ValueError("input file should contain less then 15 lines")
 
+    if args.pattern:
+        matches = []
+
+        @pattern(args.pattern)
+        def set_args(*tokens):
+            matches.append(tokens)
+
+        transformer._internal = set_args
+        transformer.transform(source)
+
     page = NamedTemporaryFile("w", delete=False, buffering=1)
-    write_board(page, transformer, tokens)
+    with document(page, transformer, tokens) as doc:
+        for frame, token in enumerate(tokens):
+            idx = f"frame_{frame}"
+            highlight = matches[frame] if args.pattern else {token}
+            doc.write(
+                f'<div id="frame_{frame}">{create_board(transformer, tokens, highlight, args.pattern)}</div>'
+            )
+            if args.pattern and frame + 1 == len(matches):
+                break
+
+        page.write(STATIC_HTML.substitute({"total_frames": frame + 1}))
+
     webbrowser.open(page.name)
     page.close()
 
@@ -112,9 +142,9 @@ var interval_id = setInterval(function () {
         last = div;
         i += 1;
         console.log("showing" + i);
-        if (i == ${total_frames}) clearInterval(interval_id);
+        if (i == ${total_frames}) i = 0;
     },
-700);
+550);
 </script>
 """
 )

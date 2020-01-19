@@ -256,8 +256,8 @@ class TokenTransformer:
                     matchings[0],
                     matchings[-1] + 1,
                 )  # hacky thing that make this work, please fix it ASAP
-            except IndexError as exc:
-                raise PatternError from exc
+            except IndexError:
+                return
 
         def stream_tokens_reindex():
             stream_tokens_positions.clear()
@@ -290,8 +290,10 @@ class TokenTransformer:
 
             slices = []
             for match in finditer_overlapping(pattern, stream_tokens_text):
-                start_index, end_index = text_stream_searcher(*match.span())
-                slices.append(Slice(start_index, end_index))
+                result = text_stream_searcher(*match.span())
+                if result:
+                    start_index, end_index = result
+                    slices.append(Slice(start_index, end_index))
 
             stream_tokens, state = self._slice_replace(
                 visitor, slices, stream_tokens
