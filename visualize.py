@@ -18,7 +18,7 @@ def create_board(transformer, stream_tokens, highlight, pattern=None):
     drawing.add(
         drawing.rect(
             insert=(0, 0),
-            size=("500px", "500px"),
+            size=("600px", "600px"),
             stroke_width="5",
             stroke="black",
             fill="white",
@@ -87,7 +87,7 @@ def main():
     args.file.close()
     print("Processing input...")
 
-    if tokens[-1].end[0] > 15:
+    if tokens[-1].end[0] > 18:
         raise ValueError("input file should contain less then 15 lines")
 
     if args.pattern:
