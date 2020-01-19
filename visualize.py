@@ -1,16 +1,19 @@
+# requiurements: svgwrite
+import tempfile
 import token
 import tokenize
-from argparse import ArgumentParser
-from pathlib import Path
+import webbrowser
+from argparse import ArgumentParser, FileType
 from string import Template
+from tempfile import NamedTemporaryFile
 
 import svgwrite
 
 from brm import TokenTransformer
 
 
-def create_board(transformer, stream_tokens, highlight, filename):
-    drawing = svgwrite.Drawing(filename=filename)
+def create_board(transformer, stream_tokens, highlight):
+    drawing = svgwrite.Drawing()
     drawing.add(
         drawing.rect(
             insert=(0, 0),
@@ -24,19 +27,20 @@ def create_board(transformer, stream_tokens, highlight, filename):
     for stream_token in stream_tokens:
         x_pos = 50 + stream_token.start[1] * 7
         y_pos = 25 + stream_token.start[0] * 25
-        source = stream_token.line[
-            stream_token.start[1] : stream_token.end[1]
-        ]  # single line
+        source = stream_token.string
+
         if highlight == stream_token:
             if stream_token.type == token.NEWLINE:
                 source = "|"
+                x_pos += 7
             elif stream_token.type == token.INDENT:
                 source = "*" * len(stream_token.string)
 
-        span = drawing.tspan(source, insert=(x_pos, y_pos))
-        if highlight == stream_token:
-            span.stroke(color="red")
-        text.add(span)
+        for extra, line in enumerate(source.splitlines()):
+            span = drawing.tspan(line, insert=(x_pos, y_pos + 25 * extra))
+            if highlight == stream_token:
+                span.stroke(color="red")
+            text.add(span)
 
     cursor = drawing.tspan(
         f"Current token: {transformer._get_name(highlight)}", (100, y_pos + 50)
@@ -44,38 +48,43 @@ def create_board(transformer, stream_tokens, highlight, filename):
     cursor.stroke(color="black")
     text.add(cursor)
     drawing.add(text)
-    drawing.save()
     return drawing.tostring()
+
+
+def write_board(page, transformer, tokens):
+    page.write("<html><head><title>BRM Visualizer</title></head><body>")
+    for frame, token in enumerate(tokens):
+        idx = f"frame_{frame}"
+        page.write(
+            f'<div id="frame_{frame}">{create_board(transformer, tokens, token)}</div>'
+        )
+    page.write(STATIC_HTML.substitute({"total_frames": len(tokens)}))
+    page.write("</body></html>")
 
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("file", type=Path, help="file to visualize")
-    parser.add_argument("output", type=Path, help="output directory")
+    parser.add_argument(
+        "file",
+        type=FileType(),
+        nargs="?",
+        default="-",
+        help="file to visualize",
+    )
     args = parser.parse_args()
 
     transformer = TokenTransformer()
-    with tokenize.open(args.file) as source:
-        tokens = transformer.quick_tokenize(source.read())
+    tokens = transformer.quick_tokenize(args.file.read())
+    args.file.close()
+    print("Processing input...")
 
     if tokens[-1].end[0] > 15:
         raise ValueError("input file should contain less then 15 lines")
-    if not args.output.is_dir():
-        raise ValueError("output should be an existing directory")
 
-    index = open(args.output / "index.html", "w")
-    for frame, token in enumerate(tokens):
-        idx = f"frame_{frame}"
-        index.write(f'<div id="{idx}">')
-        index.write(
-            create_board(
-                transformer, tokens, token, args.output / f"{idx}.svg"
-            )
-        )
-        index.write("</div>")
-
-    index.write(STATIC_HTML.substitute({"total_frames": frame + 1}))
-    index.close()
+    page = NamedTemporaryFile("w", delete=False, buffering=1)
+    write_board(page, transformer, tokens)
+    webbrowser.open(page.name)
+    page.close()
 
 
 # I SUCK AT SVGS
@@ -102,9 +111,10 @@ var interval_id = setInterval(function () {
         last && (last.style.display = "none");
         last = div;
         i += 1;
+        console.log("showing" + i);
         if (i == ${total_frames}) clearInterval(interval_id);
     },
-    700);
+700);
 </script>
 """
 )
