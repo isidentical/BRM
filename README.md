@@ -102,4 +102,5 @@ Wanna try this? Just run `python visualize.py --help`
 - `quick_untokenize(tokens: Sequence[TokenInfo])` => `str`, give some sequence of tokens and get a string form of it without any usage of positions. It helps the cases when you dont want to deal with preceding issues about token locations. If you want to get a pretty input with using token locations, call `tokenize.untokenize` directly.
 - `directional_length(tokens: Sequence[TokenInfo])` => `int`, calculate the X distance between start of the sequence and end of the sequence.
 - `shift_all(tokens: Sequence[TokenInfo], x_offset: int, y_offset: int)` => `int`, shift positions of all tokens in the given sequence
-- `get_type(token: TokenInfo)`
+- `_get_type(token: TokenInfo)` => `int`, returns the type of given token
+- `until(toktype: int, stream: Union[Iterable, Iterator])` => `Generator[TokenInfo]`, gets and yields a token from stream until it gets a token with given type (it returns that token too!).

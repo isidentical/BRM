@@ -440,6 +440,14 @@ class TokenTransformer:
             (token.type, token.string) for token in tokens
         )
 
+    def until(self, toktype, stream):
+        for token in stream:
+            yield token
+            if self._get_type(token) == toktype:
+                break
+        else:
+            raise ValueError("No match!")
+
     def dummy(self, token):
         # Implement dummy on subclasses for logging purposes or getting all tokens
         return None
