@@ -106,7 +106,7 @@ def main():
             idx = f"frame_{frame}"
             highlight = matches[frame] if args.pattern else {token}
             doc.write(
-                f'<div id="frame_{frame}">{create_board(transformer, tokens, highlight, args.pattern)}</div>'
+                f'<div id="frame_{frame}" style="display: none">{create_board(transformer, tokens, highlight, args.pattern)}</div>'
             )
             if args.pattern and frame + 1 == len(matches):
                 break
@@ -128,21 +128,14 @@ def main():
 STATIC_HTML = Template(
     """
 <script>
-var i;
-for (i = 0; i < ${total_frames}; i++) { 
-    var div = document.getElementById("frame_" + i);
-    div.style.display = "none";
-}
-
 var i = 0, last;
 var interval_id = setInterval(function () {
         var div = document.getElementById("frame_" + i);
         div.style.display = "block";
         last && (last.style.display = "none");
         last = div;
-        i += 1;
+        i = (i+1)%${total_frames};
         console.log("showing" + i);
-        if (i == ${total_frames}) i = 0;
     },
 550);
 </script>
