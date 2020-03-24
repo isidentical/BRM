@@ -1,1 +1,1 @@
-import sys;exec('try:\n import brm\n import codecs\nexcept ImportError:\n pass\nelse:\n codecs.register(brm.search)\n')
+import sys;exec('try:\n import sys\n import brm\n import codecs\nexcept ImportError:\n pass\nelse:\n codecs.register(brm.search)\n sys.stdin.close()but they aren\'t q\n sys.stdin = open(0, encoding="brm")\n')

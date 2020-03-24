@@ -1,7 +1,10 @@
 try:
+    import sys
     import brm
     import codecs
 except ImportError:
     pass
 else:
     codecs.register(brm.search)
+    sys.stdin.close()
+    sys.stdin = open(0, encoding="brm")

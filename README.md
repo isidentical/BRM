@@ -104,3 +104,6 @@ Wanna try this? Just run `python visualize.py --help`
 - `shift_all(tokens: Sequence[TokenInfo], x_offset: int, y_offset: int)` => `int`, shift positions of all tokens in the given sequence
 - `_get_type(token: TokenInfo)` => `int`, returns the type of given token
 - `until(toktype: int, stream: Union[Iterable, Iterator])` => `Generator[TokenInfo]`, gets and yields a token from stream until it gets a token with given type (it returns that token too!).
+
+# Note
+BRM can hijack your interactive sessions without notice, be aware!
