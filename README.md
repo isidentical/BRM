@@ -36,6 +36,17 @@ sqr = SquareRoot()
 assert eval(sqr.transform("√9")) == 3
 ```
 
+## Why BRM
+
+- BRM is an extremely simple, dependency-free, pure-python tool with 500 LoC that you can easily vendor.
+- BRM supports each new Python syntax out of the box, no need to wait changes on our upstream.
+- BRM supports incomplete files (and files that contain invalid python syntax).
+- BRM supports introducing new syntax and making it permanent for prototypes.
+
+If you need any of these, BRM might be the right fit. But I would warn against using it for complex
+refactoring tasks, since that is not a problem we intend to tackle. If you need such a tool, take a look
+at [refactor](https://github.com/isidentical/refactor) or [parso](https://github.com/davidhalter/parso).
+
 ## Permanency
 
 If you loved the concept of transformers and use them in real world code, BRM exposes a custom
