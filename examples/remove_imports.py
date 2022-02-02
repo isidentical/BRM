@@ -3,18 +3,10 @@ from __future__ import annotations
 import argparse
 import difflib
 import token
-import tokenize
-from contextlib import suppress
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from brm import (
-    NoLineTransposer,
-    Priority,
-    TokenTransformer,
-    get_type_from_name,
-    pattern,
-)
+from brm import NoLineTransposer, Priority, TokenTransformer, pattern
 
 __author__ = "Batuhan Taskaya"
 __copyright__ = f"Copyright 2019, {__author__}"
@@ -40,7 +32,9 @@ class ImportFixer(TokenTransformer):
     # import foo, foo.bar
     # import foo.bar, bar.foo
     @pattern(
-        "name", f"({dot_name}( comma (nl )?{dot_name})*( nl)?)", newline_group,
+        "name",
+        f"({dot_name}( comma (nl )?{dot_name})*( nl)?)",
+        newline_group,
     )
     def fix_import_stmt(self, stmt, *tokens, removals=None):
         if stmt.string != "import":
@@ -52,7 +46,7 @@ class ImportFixer(TokenTransformer):
         newlines = []
         token_info = iter(tokens)
         if removals is None:
-            # cant use removals = removals or self.modules
+            # can't use removals = removals or self.modules
             # because caller might be call this with removals = []
             removals = self.modules
 

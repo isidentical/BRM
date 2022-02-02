@@ -1,13 +1,15 @@
 # Bicycle Repair Man
-BRM is a python source rewriting library with the freedom you are looking for. It gives you a chance to intervene lexing before any tree-like structre constructed. You are free to do anything; change already constructed tokens with matching them according to your patterns, put **new** tokens and modify the lexer rules, refactor tons of python files without losing any information (full roundtripability).
 
+BRM is a python source modification library to perform lossless modifications with the guarantee of full-roundtripability. It is
+generally used for unstructured source parts, where the modification can be done directly on the tokens.
 
-This long paragraph can be boring, let me show you some examples of what you can actually.
+A simple example would be the `TokenTransformer`, where we change each `+` (plus) operator
+to a `-` (minus) operator.
 
-
-I hate plus operator
 ```py
 class DestoryAllOfThem(TokenTransformer):
+    
+    # Replace each PLUS token with a MINUS
     def visit_plus(self, token):
         return token._replace(string="-")
 
@@ -15,24 +17,46 @@ transformer = DestoryAllOfThem()
 assert transformer.transform("(2p) + 2 # with my precious comment") == "(2p) - 2 # with my precious comment"
 ```
 
-Why I have to use `x ** 0.5` in order to get square root of `x`, can't I just use a `√` operator?
+One advantage of token based refactoring over any form of structured tree representation is that, you are much more
+liberal about what you can do. Do you want to prototype a new syntax idea, for example a `√` operator; here you go:
+
 ```py
 class SquareRoot(TokenTransformer):
 
+    # Register a new token called `squareroot`
     def register_squareroot(self):
         return "√"
 
+    # Match a squareroot followed by a number
     @pattern("squareroot", "number")
     def remove_varprefix(self, operator, token):
         return self.quick_tokenize(f"int({token.string} ** 0.5)")
 
 sqr = SquareRoot()
-assert eval(sqr.transform("√9 # some more comments")) == 3
-assert "some more comments" in sqr.transform("√9 # some more comments")
+assert eval(sqr.transform("√9")) == 3
 ```
 
-## Making transformers permanent
-If you like your transformer and use it on the real python files, you can use `~/.brm` folder. Actually you shouldn't depend that folder, you can just write your transformer and do this `cp transformer.py $(python -m brm)`. It should print out the right location for transformers. After that operation you can just add `# coding: brm` comment to every python file you want to use your transformers. If you already using an encoding you can keep using it with `# coding: brm-<encoding>` like `# coding: brm-utf8` etc. Let's do an example
+## Why BRM
+
+- BRM is an extremely simple, dependency-free, pure-python tool with 500 LoC that you can easily vendor.
+- BRM supports each new Python syntax out of the box, no need to wait changes on our upstream.
+- BRM supports incomplete files (and files that contain invalid python syntax).
+- BRM supports introducing new syntax and making it permanent for prototypes.
+
+If you need any of these, BRM might be the right fit. But I would warn against using it for complex
+refactoring tasks, since that is not a problem we intend to tackle. If you need such a tool, take a look
+at [refactor](https://github.com/isidentical/refactor) or [parso](https://github.com/davidhalter/parso).
+
+## Permanency
+
+If you loved the concept of transformers and use them in real world code, BRM exposes a custom
+encoding that will run your transformers automatically when specified.
+
+- Write a transformer
+- Copy it to the `~/.brm` folder, or simply use `cp <file>.py $(python -m brm)`
+- Specify `# coding: brm` on each file
+
+Example:
 
 ```py
 from brm import TokenTransformer, pattern
@@ -41,22 +65,18 @@ class AlwaysTrue(TokenTransformer):
 
     STRICT = False
 
+    # Make every if/elif statement `True`
     @pattern("name", "*any", "colon")
     def always_true_if(self, *tokens):
         statement, *_, colon = tokens
-        if statement.string not in {"if", "elif", "while"}:
+        if statement.string not in {"if", "elif"}:
             return
         true, = self.quick_tokenize("True")
         return (statement, true, colon)
 
 ```
-First of all, the `STRICT` state means do we care about how the result would look like. In this case, no. Because imagine this as a pre-processor, no one is going to see the result of processed text it except the interpreter it self. So we are free to swallow every location information (that won't break any code integrity).
 
-
-This example's pattern starts with a  that catches a name, which could be a keyword but during the lexing you can't know if it is or not. Then it catches as many things as possible until it gets a colon. The transformer function assignes first token to `statement` and last token to `colon` and swallows all of the tokens between them. The swallowed tokens constructs the actual condition but they wont be needed because we'll just replace condition with True. After setting statement, we just acess `string` attribute (which contains the value of token) and check if it is a valid keyword. If it is not, we return `None` which means this transformer didn't change anything and continue. If it is a valid statement we'll use `quick_tokenize` method to get tokens from a string. It is returning a sequence so we'll do some unpacking with trailing comma. At the end we'll return a sequence of tokens; the statement it self (e.g `if` keyword), `True` token and the colon (`:`).
-
-
-After we finish our work with transformer, we'll put this to the pre-processor folder of BRM. Transformers on that folder will be executed on every python interpreter run, and transform python sources if they use special brm coding (`# coding: brm`).
+Let's put our transformer to the BRM's transformer folder, and run our example.
 
 ```
 (.venv) [  9:12ÖS ]  [ isidentical@x200:~ ]
@@ -76,31 +96,38 @@ LOL
 TA-DA!
 
 # BRM Pattern Syntax
-BRM sees python source code as a stream of token types when it is searching a pattern. Imagine this code;
+
+For BRM, a python source code is just a sequence of tokens. It doesn't create any relationships between them,
+or even verify the file is syntactically correct. For example take a look at the following file:
+
 ```py
 if a == x:
     2 + 2 # lol
 ```
-the text representation of this tokens is like this;
+
+For BRM, in an abstract fashion, the file is just the following text:
+
 ```
 NAME NAME EQEQUAL NAME COLON NEWLINE INDENT NUMBER PLUS NUMBER COMMENT NEWLINE DEDENT ENDMARKER
 ```
-And BRM process it like this
 
+And internally it is processed like this:
 
 ![brm pattern show gif](docs/pattern.gif)
 
-
 If you want to match binary plus operation here (`2 + 2`), you can create pattern with `number, plus, name`.
-If you want to match if statement's body, you can use some implicit tokens (which we can't show in the gif :D) called `INDENT` and `DEDENT`. So If there are only simple expressions or statements inside to if's body, you can create a pattern that starts with an indent token and takes anything between that indent and the dedent token, `indent, *any, dedent`. Any is a pattern that expands to any token, like regex's `(.?*)` capturing group. 
 
-![brm pattern matching complex gif](docs/custom_patterns.gif)
+> Note: If you want to visualize your patterns and see what they match, give [`examples/visualize.py`](./examples/visualize.py) a shot.
 
-Wanna try this? Just run `python visualize.py --help`
-# Some minor functions
-- `quick_tokenize(source: str)` => `List[TokenInfo]`, give some source and get some tokens that can construct the same source that was inputted.
-- `quick_untokenize(tokens: Sequence[TokenInfo])` => `str`, give some sequence of tokens and get a string form of it without any usage of positions. It helps the cases when you dont want to deal with preceding issues about token locations. If you want to get a pretty input with using token locations, call `tokenize.untokenize` directly.
-- `directional_length(tokens: Sequence[TokenInfo])` => `int`, calculate the X distance between start of the sequence and end of the sequence.
-- `shift_all(tokens: Sequence[TokenInfo], x_offset: int, y_offset: int)` => `int`, shift positions of all tokens in the given sequence
-- `_get_type(token: TokenInfo)` => `int`, returns the type of given token
-- `until(toktype: int, stream: Union[Iterable, Iterator])` => `Generator[TokenInfo]`, gets and yields a token from stream until it gets a token with given type (it returns that token too!).
+# Extras
+
+If you are using the `TokenTransformer`, there are a few handy functions that you might check out:
+
+| Function                                                           | Returns               | Description                                                                                                                                                                                                                 |     |
+| ------------------------------------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `quick_tokenize(source: str, *, strip: bool = True)`               | `List[TokenInfo]`     | Break the given `source` text into a list of tokens. If `strip` is `True`, then the last 2 tokens (`NEWLINE`, `EOF`) will be omitted.                                                                                       |     |
+| `quick_untokenize(tokens: List[TokenInfo])`                        | `str`                 | Convert the given sequence of `tokens` back to a representation which would yield the same tokens back when tokenized (a lossy conversion). If you want a full round-trip / lossless conversion, use `tokenize.untokenize`. |     |
+| `directional_length(tokens: List[TokenInfo])`                      | `int`                 | Calculate the linear distance between the first and the last token of the sequence.                                                                                                                                         |     |
+| `shift_all(tokens: List[TokenInfo], x_offset: int, y_offset: int)` | `List[TokenInfo]`     | Shift each token in the given sequence by `x_offset` in the column offsets, and by `y_offset` in the line numbers. Return the new list of tokens.                                                                           |     |
+| `until(toktype: int, stream: List[TokenInfo])`                     | `Iterator[TokenInfo]` | Yield all tokens until a token of `toktype` is seen. If there are no such tokens seen, it will raise a `ValueError`                                                                                                         |     |
+| `_get_type(token: TokenInfo)`                                      | `int`                 | Return the type of the given token. Useful with `until()`. (`internal`)                                                                                                                                                     |     |
