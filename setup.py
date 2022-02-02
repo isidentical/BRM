@@ -3,7 +3,7 @@ from distutils.command.build import build
 from itertools import chain
 from os.path import basename, dirname, join
 
-from setuptools import Command, find_packages, setup
+from setuptools import Command, setup
 from setuptools.command.develop import develop
 from setuptools.command.easy_install import easy_install
 from setuptools.command.install_lib import install_lib
@@ -65,7 +65,7 @@ class GeneratePTH(Command):
         with open(join(dirname(__file__), "static", "brm.pth"), "w") as fh:
             with open(join(dirname(__file__), "static", "brm.embed")) as sh:
                 fh.write(
-                    "import sys;" "exec(%r)" % sh.read().replace("    ", " ")
+                    "import sys;exec(%r)" % sh.read().replace("    ", " ")
                 )
 
 

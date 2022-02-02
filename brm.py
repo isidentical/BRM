@@ -3,11 +3,9 @@ import importlib.util
 import inspect
 import io
 import re
-import shutil
 import sys
 import token
 import tokenize
-from argparse import ArgumentParser
 from enum import IntEnum
 from functools import partial
 from pathlib import Path
@@ -277,7 +275,8 @@ class TokenTransformer:
         stream_tokens_positions = {}
         stream_tokens_reindex()
         patterns = sorted(
-            patterns.items(), key=lambda kv: Priority.get(kv[1]),
+            patterns.items(),
+            key=lambda kv: Priority.get(kv[1]),
         )
 
         only_high = False

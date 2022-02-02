@@ -1,7 +1,5 @@
 # requirements: svgwrite
-import tempfile
 import token
-import tokenize
 import webbrowser
 from argparse import ArgumentParser, FileType
 from contextlib import contextmanager
@@ -106,7 +104,8 @@ def main():
             idx = f"frame_{frame}"
             highlight = matches[frame] if args.pattern else {token}
             doc.write(
-                f'<div id="frame_{frame}" style="display: none">{create_board(transformer, tokens, highlight, args.pattern)}</div>'
+                f'<div id="frame_{frame}" style="display:'
+                f' none">{create_board(transformer, tokens, highlight, args.pattern)}</div>'
             )
             if args.pattern and frame + 1 == len(matches):
                 break

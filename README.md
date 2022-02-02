@@ -1,7 +1,7 @@
 # Bicycle Repair Man
 
 BRM is a python source modification library to perform lossless modifications with the guarantee of full-roundtripability. It is
-generally used for unstructured source parts, where the modification can be done directly on the tokens. 
+generally used for unstructured source parts, where the modification can be done directly on the tokens.
 
 A simple example would be the `TokenTransformer`, where we change each `+` (plus) operator
 to a `-` (minus) operator.
@@ -37,6 +37,7 @@ assert eval(sqr.transform("√9")) == 3
 ```
 
 ## Permanency
+
 If you loved the concept of transformers and use them in real world code, BRM exposes a custom
 encoding that will run your transformers automatically when specified.
 
@@ -106,17 +107,16 @@ And internally it is processed like this:
 If you want to match binary plus operation here (`2 + 2`), you can create pattern with `number, plus, name`.
 
 > Note: If you want to visualize your patterns and see what they match, give [`examples/visualize.py`](./examples/visualize.py) a shot.
- 
+
 # Extras
 
 If you are using the `TokenTransformer`, there are a few handy functions that you might check out:
 
-| Function                                                           | Returns               | Description                                                                                                                                                                                                                 |   |
-|--------------------------------------------------------------------|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
-| `quick_tokenize(source: str, *, strip: bool = True)`               | `List[TokenInfo]`     | Break the given `source` text into a list of tokens. If `strip` is `True`, then the last 2 tokens (`NEWLINE`, `EOF`) will be omitted.                                                                                       |   |
-| `quick_untokenize(tokens: List[TokenInfo])`                        | `str`                 | Convert the given sequence of `tokens` back to a representation which would yield the same tokens back when tokenized (a lossy conversion). If you want a full round-trip / lossless conversion, use `tokenize.untokenize`. |   |
-| `directional_length(tokens: List[TokenInfo])`                      | `int`                 | Calculate the linear distance between the first and the last token of the sequence.                                                                                                                                         |   |
-| `shift_all(tokens: List[TokenInfo], x_offset: int, y_offset: int)` | `List[TokenInfo]`     | Shift each token in the given sequence by `x_offset` in the column offsets, and by `y_offset` in the line numbers. Return the new list of tokens.                                                                           |   |
-| `until(toktype: int, stream: List[TokenInfo])`                     | `Iterator[TokenInfo]` | Yield all tokens until a token of `toktype` is seen. If there are no such tokens seen, it will raise a `ValueError`                                                                                                         |   |
-| `_get_type(token: TokenInfo)`                                      | `int`                 | Return the type of the given token. Useful with `until()`. (`internal`)                                                                                                                                                     |   |
-
+| Function                                                           | Returns               | Description                                                                                                                                                                                                                 |     |
+| ------------------------------------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `quick_tokenize(source: str, *, strip: bool = True)`               | `List[TokenInfo]`     | Break the given `source` text into a list of tokens. If `strip` is `True`, then the last 2 tokens (`NEWLINE`, `EOF`) will be omitted.                                                                                       |     |
+| `quick_untokenize(tokens: List[TokenInfo])`                        | `str`                 | Convert the given sequence of `tokens` back to a representation which would yield the same tokens back when tokenized (a lossy conversion). If you want a full round-trip / lossless conversion, use `tokenize.untokenize`. |     |
+| `directional_length(tokens: List[TokenInfo])`                      | `int`                 | Calculate the linear distance between the first and the last token of the sequence.                                                                                                                                         |     |
+| `shift_all(tokens: List[TokenInfo], x_offset: int, y_offset: int)` | `List[TokenInfo]`     | Shift each token in the given sequence by `x_offset` in the column offsets, and by `y_offset` in the line numbers. Return the new list of tokens.                                                                           |     |
+| `until(toktype: int, stream: List[TokenInfo])`                     | `Iterator[TokenInfo]` | Yield all tokens until a token of `toktype` is seen. If there are no such tokens seen, it will raise a `ValueError`                                                                                                         |     |
+| `_get_type(token: TokenInfo)`                                      | `int`                 | Return the type of the given token. Useful with `until()`. (`internal`)                                                                                                                                                     |     |
