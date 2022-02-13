@@ -131,14 +131,14 @@ def pattern(*pattern_tokens):
             )
             pattern_part = EXPANDS.get(pattern_part, pattern_part)
             if index == 0 or not add_parenthesis:
-                template = fr"{pattern_part}"
+                template = rf"{pattern_part}"
             elif add_parenthesis:
-                template = fr"\s{pattern_part}"
+                template = rf"\s{pattern_part}"
 
             if add_parenthesis:
-                template = fr"({template}){prefix}"
+                template = rf"({template}){prefix}"
             else:
-                template = fr"\s{template}{prefix}"
+                template = rf"\s{template}{prefix}"
 
             pattern_template_buffer += template
         pattern_template = re.compile(pattern_template_buffer, re.I)
